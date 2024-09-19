@@ -1,48 +1,156 @@
 import './main.scss';
 import gsap from 'gsap';
-import { Flip } from 'gsap/Flip';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Lenis from '@studio-freight/lenis';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+import ScrollToPlugin from 'gsap/ScrollToPlugin';
 
-console.clear();
+// lenis
+const lenis = new Lenis({
+  duration: 1.2,
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  smoothWheel: true,
+});
 
-gsap.registerPlugin(Flip, ScrollTrigger);
+function raf(time: number) {
+  lenis.raf(time);
+  requestAnimationFrame(raf);
+}
 
-let flipCtx: gsap.Context;
+requestAnimationFrame(raf);
 
-const createTimeline = () => {
-  flipCtx && flipCtx.revert();
+// horiontall scroll
+gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+// console.clear();
 
-  flipCtx = gsap.context(() => {
-    const secondState = Flip.getState('.second .marker');
-    const thirdState = Flip.getState('.third .marker');
-    const flipConfig = {
-      ease: 'none',
-      duration: 1,
-    };
+const select = (e: string): HTMLElement | null => document.querySelector(e);
+const selectAll = (e: string): NodeListOf<HTMLElement> =>
+  document.querySelectorAll(e);
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: '.container.initial',
-        start: 'clamp(top center)',
-        endTrigger: '.final',
-        end: 'clamp(top center)',
-        scrub: 1,
-        // markers: true
-      },
-    });
+const tracks = selectAll('.sticky-element');
 
-    const firstFit = Flip.fit('.box', secondState, flipConfig);
-    const secondFit = Flip.fit('.box', thirdState, flipConfig);
+console.log(tracks);
 
-    if (
-      firstFit instanceof gsap.core.Tween &&
-      secondFit instanceof gsap.core.Tween
-    ) {
-      tl.add(firstFit).add(secondFit, '+=0.5');
-    }
+tracks.forEach((track, i) => {
+  let trackWrapper: NodeListOf<HTMLElement> = track.querySelectorAll('.track');
+  let trackFlex: NodeListOf<HTMLElement> =
+    track.querySelectorAll('.track-flex');
+  let allImgs: NodeListOf<HTMLElement> = track.querySelectorAll('.image');
+  let progress: NodeListOf<HTMLElement> = track.querySelectorAll(
+    '.progress--bar-total'
+  );
+
+  let sliders: HTMLElement[] = gsap.utils.toArray('.panel-wide');
+  let thumbs: HTMLElement[] = gsap.utils.toArray('.thumbs');
+  let visible: HTMLElement[] = gsap.utils.toArray('.visible');
+
+  let trackWrapperWidth = () => {
+    let width = 0;
+    trackWrapper.forEach((el) => (width += el.offsetWidth));
+    return width;
+  };
+
+  let trackFlexWidth = () => {
+    let width = 0;
+    trackFlex.forEach((el) => (width += el.offsetWidth));
+    return width;
+  };
+
+  ScrollTrigger.defaults({});
+
+  gsap.defaults({
+    ease: 'none',
   });
-};
 
-createTimeline();
+  let scrollTween = gsap.to(trackWrapper, {
+    x: () => -trackWrapperWidth() + window.innerWidth,
+    scrollTrigger: {
+      trigger: track,
+      pin: true,
+      anticipatePin: 1,
+      //pinType: "transform",
+      scrub: 1,
+      start: 'center center',
+      end: () => '+=' + (track.scrollWidth - window.innerWidth),
+    //   onRefresh: (self) => self.getTween().resetTo('totalProgress', 0),
+      // fixes a very minor issue where the progress was starting at 0.001.
+      invalidateOnRefresh: true,
+    },
+  });
 
-window.addEventListener('resize', createTimeline);
+  allImgs.forEach((img, i) => {
+    // the intended parallax animation
+    const parallaxWidth = img.dataset.parallax;
+    gsap.fromTo(
+      img,
+      {
+        x: `-${parallaxWidth}vw`,
+      },
+      {
+        x: `${parallaxWidth}vw`,
+        scrollTrigger: {
+          trigger: img.parentNode as HTMLElement, //.panel-wide
+          containerAnimation: scrollTween,
+          start: 'left right',
+          end: 'right left',
+          scrub: true,
+          invalidateOnRefresh: true,
+        //   onRefresh: (self) => {
+        //     if (self.start < 0) {
+        //       self.animation?.progress(
+        //         gsap.utils.mapRange(self.start, self.end, 0, 1, 0)
+        //       );
+        //     }
+        //   },
+        },
+      }
+    );
+  });
+
+//   let progressBar = gsap
+//     .timeline({
+//       scrollTrigger: {
+//         trigger: trackWrapper,
+//         containerAnimation: scrollTween,
+//         start: 'left left',
+//         end: () => '+=' + (trackWrapperWidth() - window.innerWidth),
+//         scrub: true,
+//       },
+//     })
+//     .to(progress, {
+//       width: '100%',
+//       ease: 'none',
+//     });
+
+//   sliders.forEach((slider, i) => {
+//     let anim = gsap
+//       .timeline({
+//         scrollTrigger: {
+//           trigger: slider,
+//           containerAnimation: scrollTween,
+//           start: 'left right',
+//           end: 'right right',
+//           scrub: true,
+//           //onEnter: () => playLottie(i),
+//         },
+//       })
+//       .to(visible[i], {
+//         width: '100%',
+//         backgroundColor: '#1e90ff',
+//         ease: 'none',
+//       });
+//   });
+
+//   sliders.forEach((slider, i) => {
+//     thumbs[i].onclick = () => {
+//       console.log(slider.getBoundingClientRect().left);
+//       gsap.to(window, {
+//         //scrollTo: "+=" + slider.getBoundingClientRect(i).left,
+//         scrollTo: {
+//           y: '+=' + slider.getBoundingClientRect().left,
+//         },
+//         duration: 0.5,
+//         overwrite: 'auto',
+//       });
+//     };
+//   });
+});
